@@ -75,11 +75,12 @@ void BIOSStringAttribute::setAttrValueOnDbus(
     dbusHandler->setDbusProperty(*dBusMap, value);
 }
 
-std::string BIOSStringAttribute::getAttrValue()
+std::string
+    BIOSStringAttribute::getAttrValue(std::optional<std::string> persisted)
 {
     if (!dBusMap.has_value())
     {
-        return stringInfo.defString;
+        return persisted.value_or(stringInfo.defString);
     }
     try
     {
@@ -92,7 +93,7 @@ std::string BIOSStringAttribute::getAttrValue()
         error(
             "Get String Attribute Value Error: AttributeName = {ATTR_NAME}  ERROR={ERR_EXCEP}",
             "ATTR_NAME", name, "ERR_EXCEP", e.what());
-        return stringInfo.defString;
+        return persisted.value_or(stringInfo.defString);
     }
 }
 
@@ -112,31 +113,20 @@ void BIOSStringAttribute::constructEntry(
     auto [attrHandle, attrType,
           _] = table::attribute::decodeHeader(attrTableEntry);
 
-    std::string currStr{};
-    if (optAttributeValue.has_value())
+    std::optional<std::string> persisted;
+    if (optAttributeValue.has_value() && optAttributeValue->index() == 1)
     {
-        auto attributeValue = optAttributeValue.value();
-        if (attributeValue.index() == 1)
-        {
-            currStr = std::get<std::string>(attributeValue);
-        }
-        else
-        {
-            currStr = getAttrValue();
-        }
-    }
-    else
-    {
-        currStr = getAttrValue();
+        persisted = std::get<std::string>(*optAttributeValue);
     }
 
-    if (currStr.size() < stringInfo.minLength ||
-        currStr.size() > stringInfo.maxLength)
+    auto currStr = getAttrValue(std::move(persisted));
+    if (currstr.size() < stringinfo.minlength ||
+        currstr.size() > stringinfo.maxlength)
     {
         error(
-            "Setting to default. Received string size {STR_SIZE} For Attribute {ATTR_NAME}",
-            "STR_SIZE", currStr.size(), "ATTR_NAME", name);
-        currStr = stringInfo.defString;
+            "setting to default. received string size {str_size} for attribute {attr_name}",
+            "str_size", currstr.size(), "attr_name", name);
+        currstr = stringinfo.defstring;
     }
 
     table::attribute_value::constructStringEntry(attrValueTable, attrHandle,
