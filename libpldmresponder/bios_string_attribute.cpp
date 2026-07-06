@@ -75,11 +75,12 @@ void BIOSStringAttribute::setAttrValueOnDbus(
     dbusHandler->setDbusProperty(*dBusMap, value);
 }
 
-std::string BIOSStringAttribute::getAttrValue()
+std::string BIOSStringAttribute::getAttrValue(
+    std::optional<std::string> persisted)
 {
     if (!dBusMap.has_value())
     {
-        return stringInfo.defString;
+        return persisted.value_or(stringInfo.defString);
     }
     try
     {
@@ -93,7 +94,7 @@ std::string BIOSStringAttribute::getAttrValue()
             "Failed to get string attribute '{ATTRIBUTE}' at path '{PATH}' and interface '{INTERFACE}' for property '{PROPERTY}', error - {ERROR}",
             "ATTRIBUTE", name, "PATH", dBusMap->objectPath, "INTERFACE",
             dBusMap->interface, "PROPERTY", dBusMap->propertyName, "ERROR", e);
-        return stringInfo.defString;
+        return persisted.value_or(stringInfo.defString);
     }
 }
 
@@ -113,23 +114,13 @@ void BIOSStringAttribute::constructEntry(
     auto [attrHandle, attrType,
           _] = table::attribute::decodeHeader(attrTableEntry);
 
-    std::string currStr{};
-    if (optAttributeValue.has_value())
+    std::optional<std::string> persisted;
+    if (optAttributeValue.has_value() && optAttributeValue->index() == 1)
     {
-        auto attributeValue = optAttributeValue.value();
-        if (attributeValue.index() == 1)
-        {
-            currStr = std::get<std::string>(attributeValue);
-        }
-        else
-        {
-            currStr = getAttrValue();
-        }
+        persisted = std::get<std::string>(*optAttributeValue);
     }
-    else
-    {
-        currStr = getAttrValue();
-    }
+
+    auto currStr = getAttrValue(std::move(persisted));
 
     table::attribute_value::constructStringEntry(attrValueTable, attrHandle,
                                                  attrType, currStr);
